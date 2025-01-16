@@ -26,7 +26,7 @@ typedef struct Coordinate {
 
 // draw type 1, del type 2
 typedef struct Value {
-  Coordinate koor;
+  Coordinate coor;
   int type;
 } Value;
 
@@ -73,7 +73,7 @@ void push(Stack **head, Value data) {
 }
 
 Value pop(Stack **head) {
-  if (head == NULL)
+  if (*head == NULL)
     return (Value){{0, 0}, -1};
 
   Stack *temp = *head;
@@ -86,6 +86,14 @@ Value pop(Stack **head) {
 }
 
 bool is_empty(Stack **head) { return *head == NULL; }
+
+void clear_stack(Stack **head) {
+  while (*head != NULL) {
+    Stack *temp = *head;
+    *head = (*head)->next;
+    free(temp);
+  }
+}
 
 int main() {
   SDL_Init(SDL_INIT_VIDEO);
@@ -114,6 +122,7 @@ int main() {
 
         if (event.button.button == SDL_BUTTON_LEFT) {
           draw_cell(surface, (Coordinate){x, y}, 0);
+          clear_stack(&redo);
           push(&undo, (Value){{x, y}, DRAW_TYPE});
         }
 
@@ -127,9 +136,11 @@ int main() {
         if (!is_empty(&undo)) {
           Value popped = pop(&undo);
           if (popped.type != -1) {
-            draw_cell(surface, (Coordinate){popped.koor.x, popped.koor.y}, 1);
-            push(&redo, (Value){{popped.koor.x, popped.koor.y}, popped.type});
+            draw_cell(surface, (Coordinate){popped.coor.x, popped.coor.y}, 1);
+            push(&redo, (Value){{popped.coor.x, popped.coor.y}, popped.type});
           }
+        } else {
+          printf("no undo\n");
         }
       }
 
@@ -138,12 +149,14 @@ int main() {
           Value popped = pop(&redo);
           if (popped.type != -1) {
             if (popped.type == DRAW_TYPE) {
-              draw_cell(surface, (Coordinate){popped.koor.x, popped.koor.y}, 0);
+              draw_cell(surface, (Coordinate){popped.coor.x, popped.coor.y}, 0);
             } else {
-              draw_cell(surface, (Coordinate){popped.koor.x, popped.koor.y}, 1);
+              draw_cell(surface, (Coordinate){popped.coor.x, popped.coor.y}, 1);
             }
-            push(&undo, (Value){{popped.koor.x, popped.koor.y}, popped.type});
+            push(&undo, (Value){{popped.coor.x, popped.coor.y}, popped.type});
           }
+        } else {
+          printf("no redo\n");
         }
       }
     }
