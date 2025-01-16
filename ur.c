@@ -1,4 +1,6 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_keyboard.h>
+#include <SDL2/SDL_scancode.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,13 +16,22 @@
 #define CELL_SIZE 60
 #define LINE_WIDTH 2
 
+#define DRAW_TYPE 1
+#define DEL_TYPE 2
+
 typedef struct Coordinate {
   int x;
   int y;
 } Coordinate;
 
+// draw type 1, del type 2
+typedef struct Value {
+  Coordinate koor;
+  int type;
+} Value;
+
 typedef struct Stack {
-  Coordinate value;
+  Value value;
   struct Stack *next;
 } Stack;
 
@@ -53,7 +64,7 @@ void draw_grid(SDL_Surface *surface) {
 
 // Stack
 
-void push(Stack **head, Coordinate data) {
+void push(Stack **head, Value data) {
   Stack *newNode = malloc(sizeof(Stack));
   newNode->value = data;
   newNode->next = *head;
@@ -61,12 +72,12 @@ void push(Stack **head, Coordinate data) {
   *head = newNode;
 }
 
-Coordinate pop(Stack **head) {
+Value pop(Stack **head) {
   if (head == NULL)
-    return (Coordinate){0, 0};
+    return (Value){{0, 0}, -1};
 
   Stack *temp = *head;
-  Coordinate popValue = (Coordinate)temp->value;
+  Value popValue = (Value)temp->value;
 
   *head = (*head)->next;
   free(temp);
@@ -86,7 +97,10 @@ int main() {
 
   int running = 1;
   SDL_Event event;
-  Uint32 mouseState = SDL_GetMouseState(NULL, NULL);
+  const Uint8 *keyState = SDL_GetKeyboardState(NULL);
+
+  Stack *undo = NULL;
+  Stack *redo = NULL;
 
   while (running) {
     while (SDL_PollEvent(&event)) {
@@ -100,10 +114,36 @@ int main() {
 
         if (event.button.button == SDL_BUTTON_LEFT) {
           draw_cell(surface, (Coordinate){x, y}, 0);
+          push(&undo, (Value){{x, y}, DRAW_TYPE});
         }
 
         if (event.button.button == SDL_BUTTON_RIGHT) {
           draw_cell(surface, (Coordinate){x, y}, 1);
+          push(&undo, (Value){{x, y}, DEL_TYPE});
+        }
+      }
+
+      if (keyState[SDL_SCANCODE_LCTRL] && keyState[SDL_SCANCODE_Z]) {
+        if (!is_empty(&undo)) {
+          Value popped = pop(&undo);
+          if (popped.type != -1) {
+            draw_cell(surface, (Coordinate){popped.koor.x, popped.koor.y}, 1);
+            push(&redo, (Value){{popped.koor.x, popped.koor.y}, popped.type});
+          }
+        }
+      }
+
+      if (keyState[SDL_SCANCODE_LCTRL] && keyState[SDL_SCANCODE_R]) {
+        if (!is_empty(&redo)) {
+          Value popped = pop(&redo);
+          if (popped.type != -1) {
+            if (popped.type == DRAW_TYPE) {
+              draw_cell(surface, (Coordinate){popped.koor.x, popped.koor.y}, 0);
+            } else {
+              draw_cell(surface, (Coordinate){popped.koor.x, popped.koor.y}, 1);
+            }
+            push(&undo, (Value){{popped.koor.x, popped.koor.y}, popped.type});
+          }
         }
       }
     }
